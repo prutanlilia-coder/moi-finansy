@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#8d6cff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Мої фінанси" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>Мої фінанси</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root{
+      --bg1:#fff1f7; --bg2:#eef8ff; --card:#ffffff; --text:#243044; --muted:#6f7a8a;
+      --pink:#ff5f9e; --purple:#8d6cff; --blue:#4aa3ff; --green:#28c76f;
+      --orange:#ff9f43; --red:#ff5c5c; --line:#e9edf3; --shadow:0 10px 30px rgba(77,91,120,.10);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;font-family:Arial,sans-serif;color:var(--text);
+      background:linear-gradient(135deg,var(--bg1),var(--bg2));min-height:100vh;padding:24px;
+    }
+    .wrap{max-width:1160px;margin:0 auto}
+    .hero{
+      background:linear-gradient(135deg,var(--pink),var(--purple));color:white;padding:26px;
+      border-radius:24px;box-shadow:var(--shadow);margin-bottom:18px;
+    }
+    .hero h1{margin:0 0 8px;font-size:32px}
+    .hero p{margin:0;opacity:.92}
+    .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:18px 0}
+    .metric{
+      background:var(--card);border-radius:18px;padding:18px;box-shadow:var(--shadow);border-top:6px solid var(--blue)
+    }
+    .metric.income{border-top-color:var(--green)} .metric.expense{border-top-color:var(--red)}
+    .metric.balance{border-top-color:var(--purple)} .metric.goal{border-top-color:var(--orange)}
+    .metric .label{font-size:13px;color:var(--muted);margin-bottom:6px}
+    .metric .value{font-size:25px;font-weight:700}
+    .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px;margin-top:16px}
+    .card{background:var(--card);border-radius:20px;padding:20px;box-shadow:var(--shadow)}
+    h2{margin:0 0 14px}
+    label{display:block;font-size:13px;margin:0 0 6px;color:var(--muted)}
+    input,select{
+      width:100%;padding:11px 12px;border:1px solid #dfe4ea;border-radius:12px;font-size:15px;background:white
+    }
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .full{grid-column:1/-1}
+    button{border:0;border-radius:12px;padding:11px 16px;font-size:15px;cursor:pointer;font-weight:700}
+    .primary{background:linear-gradient(135deg,var(--pink),var(--purple));color:white;width:100%;margin-top:12px}
+    .secondary{background:#f2f4f7;color:var(--text)}
+    .danger{background:#fff0f0;color:#c62828}
+    .goalbox{margin-top:14px;padding:14px;background:linear-gradient(135deg,#fff8e8,#fff0f7);border-radius:16px}
+    .progress{width:100%;height:14px;border-radius:999px;background:#eceff4;overflow:hidden;margin-top:8px}
+    .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--orange),var(--pink));transition:.3s}
+    .small{font-size:13px;color:var(--muted)}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:10px 8px;text-align:left;border-bottom:1px solid var(--line);font-size:14px}
+    .badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700}
+    .income-badge{background:#e9fbf1;color:#17884b}.expense-badge{background:#fff0f0;color:#c43a3a}
+    .charts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+    canvas{max-height:300px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .category-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .cat-chip{background:#f4f0ff;border-radius:999px;padding:7px 10px;font-size:13px}
+    .report-head{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end}
+    .report-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+    .report-box{padding:14px;border-radius:16px;background:#f7f8fb}
+    .report-table .barline{height:8px;background:#eceff4;border-radius:999px;overflow:hidden}
+    .report-table .barfill{height:100%;background:linear-gradient(90deg,var(--blue),var(--purple))}
+    @media(max-width:850px){
+      .cards{grid-template-columns:1fr 1fr}.grid,.charts{grid-template-columns:1fr}
+      .report-summary{grid-template-columns:1fr}
+    }
+    @media(max-width:560px){
+      body{padding:12px}.cards{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}
+      .full{grid-column:auto}.hero h1{font-size:26px}.report-head{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>💰 Мої фінанси</h1>
+    <p>Доходи, витрати, категорії, баланс, накопичення та звіт за місяць.</p>
+  </div>
+
+  <div class="cards">
+    <div class="metric income"><div class="label">Доходи цього місяця</div><div class="value" id="incomeTotal">0 ₴</div></div>
+    <div class="metric expense"><div class="label">Витрати цього місяця</div><div class="value" id="expenseTotal">0 ₴</div></div>
+    <div class="metric balance"><div class="label">Баланс</div><div class="value" id="balanceTotal">0 ₴</div></div>
+    <div class="metric goal"><div class="label">Накопичення</div><div class="value" id="savedTotal">0 ₴</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Додати операцію</h2>
+      <div class="form-grid">
+        <div><label>Дата</label><input type="date" id="date"></div>
+        <div><label>Тип</label><select id="type"><option value="income">Дохід</option><option value="expense">Витрата</option></select></div>
+        <div><label>Сума, грн</label><input type="number" id="amount" step="0.01" min="0" placeholder="Наприклад, 1500"></div>
+        <div><label>Категорія</label><select id="category"></select></div>
+        <div class="full"><label>Коментар</label><input type="text" id="note" placeholder="Наприклад, продукти або зарплата"></div>
+      </div>
+      <button class="primary" onclick="addTransaction()">Додати</button>
+    </div>
+
+    <div class="card">
+      <h2>Ціль накопичень</h2>
+      <div class="form-grid">
+        <div><label>Назва цілі</label><input type="text" id="goalName" placeholder="Наприклад, подорож"></div>
+        <div><label>Сума цілі, грн</label><input type="number" id="goalAmount" step="1" min="0" placeholder="50000"></div>
+      </div>
+      <button class="secondary" style="margin-top:12px;width:100%" onclick="saveGoal()">Зберегти ціль</button>
+      <div class="goalbox">
+        <strong id="goalTitle">Ціль не задана</strong>
+        <div class="small" id="goalText">Вкажи суму, яку хочеш накопичити.</div>
+        <div class="progress"><div class="bar" id="goalBar"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h2>Категорії витрат</h2>
+    <div class="small">Базові категорії вже додані. Тут можна створювати свої.</div>
+    <div class="form-grid" style="margin-top:12px;">
+      <div><label>Нова категорія</label><input type="text" id="newExpenseCategory" placeholder="Наприклад, Дача"></div>
+      <div style="display:flex;align-items:end;"><button class="secondary" style="width:100%" onclick="addExpenseCategory()">Додати категорію</button></div>
+    </div>
+    <div class="category-list" id="categoryList"></div>
+  </div>
+
+  <div class="charts">
+    <div class="card"><h2>Витрати за категоріями</h2><canvas id="expenseChart"></canvas></div>
+    <div class="card"><h2>Доходи та витрати</h2><canvas id="summaryChart"></canvas></div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="report-head">
+      <div>
+        <h2>Звіт за місяць</h2>
+        <div class="small">Суми по категоріях і частка кожної категорії у загальних витратах.</div>
+      </div>
+      <div>
+        <label>Оберіть місяць</label>
+        <input type="month" id="reportMonth" onchange="renderReport()">
+      </div>
+    </div>
+
+    <div class="report-summary">
+      <div class="report-box"><div class="small">Доходи</div><strong id="reportIncome">0 ₴</strong></div>
+      <div class="report-box"><div class="small">Витрати</div><strong id="reportExpense">0 ₴</strong></div>
+      <div class="report-box"><div class="small">Залишок</div><strong id="reportBalance">0 ₴</strong></div>
+    </div>
+
+    <table class="report-table">
+      <thead><tr><th>Категорія</th><th>Сума</th><th>% витрат</th><th style="width:35%">Частка</th></tr></thead>
+      <tbody id="reportBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h2>Історія операцій</h2>
+    <div class="small">Найновіші записи — зверху.</div>
+    <table>
+      <thead><tr><th>Дата</th><th>Тип</th><th>Категорія</th><th>Сума</th><th>Коментар</th><th></th></tr></thead>
+      <tbody id="history"></tbody>
+    </table>
+    <div class="actions">
+      <button class="secondary" onclick="exportCSV()">Експорт у CSV</button>
+      <button class="danger" onclick="clearAll()">Очистити всі дані</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TX_KEY="financeHelperTransactionsV2";
+const GOAL_KEY="financeHelperGoalV2";
+const CAT_KEY="financeHelperExpenseCategoriesV2";
+
+let transactions=JSON.parse(localStorage.getItem(TX_KEY)||"[]");
+let goal=JSON.parse(localStorage.getItem(GOAL_KEY)||'{"name":"","amount":0}');
+
+const defaultExpenseCategories=[
+  "Продукти","Дім і комунальні","Здоров'я","Транспорт",
+  "Одяг та взуття","Косметика та догляд","Розваги","Навчання","Подарунки","Інше"
+];
+const incomeCategories=["Зарплата","Підробіток","Пасивний дохід","Подарунки","Інше"];
+let expenseCategories=JSON.parse(localStorage.getItem(CAT_KEY)||"null") || [...defaultExpenseCategories];
+
+let expenseChart=null, summaryChart=null;
+
+const currentMonth=new Date().toISOString().slice(0,7);
+document.getElementById("date").value=new Date().toISOString().slice(0,10);
+document.getElementById("reportMonth").value=currentMonth;
+if(goal.name) document.getElementById("goalName").value=goal.name;
+if(goal.amount) document.getElementById("goalAmount").value=goal.amount;
+
+function formatUAH(n){
+  return new Intl.NumberFormat("uk-UA",{maximumFractionDigits:2}).format(n)+" ₴";
+}
+function monthKey(d){ return d.slice(0,7); }
+
+function setCategories(){
+  const type=document.getElementById("type").value;
+  const list=type==="income"?incomeCategories:expenseCategories;
+  document.getElementById("category").innerHTML=list.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+}
+document.getElementById("type").addEventListener("change",setCategories);
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+}
+
+function addExpenseCategory(){
+  const input=document.getElementById("newExpenseCategory");
+  const name=input.value.trim();
+  if(!name) return;
+  if(expenseCategories.some(c=>c.toLowerCase()===name.toLowerCase())){
+    alert("Така категорія вже є.");
+    return;
+  }
+  expenseCategories.push(name);
+  localStorage.setItem(CAT_KEY,JSON.stringify(expenseCategories));
+  input.value="";
+  setCategories();
+  renderCategoryList();
+}
+
+function renderCategoryList(){
+  document.getElementById("categoryList").innerHTML=
+    expenseCategories.map(c=>`<span class="cat-chip">${escapeHtml(c)}</span>`).join("");
+}
+
+function addTransaction(){
+  const date=document.getElementById("date").value;
+  const type=document.getElementById("type").value;
+  const amount=parseFloat(document.getElementById("amount").value);
+  const category=document.getElementById("category").value;
+  const note=document.getElementById("note").value.trim();
+
+  if(!date || isNaN(amount) || amount<=0){
+    alert("Вкажи дату і коректну суму.");
+    return;
+  }
+  transactions.push({id:Date.now(),date,type,amount,category,note});
+  localStorage.setItem(TX_KEY,JSON.stringify(transactions));
+  document.getElementById("amount").value="";
+  document.getElementById("note").value="";
+  render();
+}
+
+function deleteTransaction(id){
+  transactions=transactions.filter(t=>t.id!==id);
+  localStorage.setItem(TX_KEY,JSON.stringify(transactions));
+  render();
+}
+
+function saveGoal(){
+  const name=document.getElementById("goalName").value.trim();
+  const amount=parseFloat(document.getElementById("goalAmount").value);
+  if(!name || isNaN(amount) || amount<=0){
+    alert("Вкажи назву цілі та суму.");
+    return;
+  }
+  goal={name,amount};
+  localStorage.setItem(GOAL_KEY,JSON.stringify(goal));
+  render();
+}
+
+function render(){
+  const monthTx=transactions.filter(t=>monthKey(t.date)===currentMonth);
+  const income=monthTx.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
+  const expense=monthTx.filter(t=>t.type==="expense").reduce((s,t)=>s+t.amount,0);
+  const balance=income-expense;
+
+  const allIncome=transactions.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
+  const allExpense=transactions.filter(t=>t.type==="expense").reduce((s,t)=>s+t.amount,0);
+  const saved=Math.max(0,allIncome-allExpense);
+
+  document.getElementById("incomeTotal").textContent=formatUAH(income);
+  document.getElementById("expenseTotal").textContent=formatUAH(expense);
+  document.getElementById("balanceTotal").textContent=formatUAH(balance);
+  document.getElementById("savedTotal").textContent=formatUAH(saved);
+
+  const history=document.getElementById("history");
+  history.innerHTML="";
+  [...transactions].sort((a,b)=>b.date.localeCompare(a.date)).forEach(t=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td>${t.date}</td>
+      <td><span class="badge ${t.type==="income"?"income-badge":"expense-badge"}">${t.type==="income"?"Дохід":"Витрата"}</span></td>
+      <td>${escapeHtml(t.category)}</td>
+      <td>${formatUAH(t.amount)}</td>
+      <td>${escapeHtml(t.note||"—")}</td>
+      <td><button class="danger" onclick="deleteTransaction(${t.id})">×</button></td>`;
+    history.appendChild(tr);
+  });
+
+  if(goal.amount>0){
+    const pct=Math.min(100,(saved/goal.amount)*100);
+    document.getElementById("goalTitle").textContent=goal.name;
+    document.getElementById("goalText").textContent=`Накопичено ${formatUAH(saved)} із ${formatUAH(goal.amount)} — ${pct.toFixed(1)}%`;
+    document.getElementById("goalBar").style.width=pct+"%";
+  }else{
+    document.getElementById("goalTitle").textContent="Ціль не задана";
+    document.getElementById("goalText").textContent="Вкажи суму, яку хочеш накопичити.";
+    document.getElementById("goalBar").style.width="0%";
+  }
+
+  renderCharts();
+  renderReport();
+  renderCategoryList();
+  setCategories();
+}
+
+function renderReport(){
+  const month=document.getElementById("reportMonth").value || currentMonth;
+  const tx=transactions.filter(t=>monthKey(t.date)===month);
+  const income=tx.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
+  const expenses=tx.filter(t=>t.type==="expense");
+  const expense=expenses.reduce((s,t)=>s+t.amount,0);
+  const balance=income-expense;
+
+  document.getElementById("reportIncome").textContent=formatUAH(income);
+  document.getElementById("reportExpense").textContent=formatUAH(expense);
+  document.getElementById("reportBalance").textContent=formatUAH(balance);
+
+  const map={};
+  expenses.forEach(t=>map[t.category]=(map[t.category]||0)+t.amount);
+
+  const rows=Object.entries(map).sort((a,b)=>b[1]-a[1]);
+  const body=document.getElementById("reportBody");
+  body.innerHTML="";
+
+  if(rows.length===0){
+    body.innerHTML='<tr><td colspan="4" class="small">За цей місяць витрат ще немає.</td></tr>';
+    return;
+  }
+
+  rows.forEach(([cat,sum])=>{
+    const pct=expense>0 ? (sum/expense)*100 : 0;
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td>${escapeHtml(cat)}</td>
+      <td>${formatUAH(sum)}</td>
+      <td>${pct.toFixed(1)}%</td>
+      <td>
+        <div class="barline"><div class="barfill" style="width:${pct}%"></div></div>
+      </td>`;
+    body.appendChild(tr);
+  });
+}
+
+function renderCharts(){
+  const expenseMap={};
+  transactions.filter(t=>t.type==="expense").forEach(t=>expenseMap[t.category]=(expenseMap[t.category]||0)+t.amount);
+
+  if(expenseChart) expenseChart.destroy();
+  expenseChart=new Chart(document.getElementById("expenseChart"),{
+    type:"doughnut",
+    data:{
+      labels:Object.keys(expenseMap),
+      datasets:[{
+        data:Object.values(expenseMap),
+        backgroundColor:["#ff5f9e","#8d6cff","#4aa3ff","#28c76f","#ff9f43","#ff5c5c","#00c2a8","#ffd166","#6c8cff","#b56cff","#95d5b2","#7fd1b9","#ffa69e","#a0c4ff"]
+      }]
+    },
+    options:{responsive:true,plugins:{legend:{position:"bottom"}}}
+  });
+
+  const byMonth={};
+  transactions.forEach(t=>{
+    const m=monthKey(t.date);
+    if(!byMonth[m]) byMonth[m]={income:0,expense:0};
+    byMonth[m][t.type]+=t.amount;
+  });
+  const months=Object.keys(byMonth).sort();
+
+  if(summaryChart) summaryChart.destroy();
+  summaryChart=new Chart(document.getElementById("summaryChart"),{
+    type:"bar",
+    data:{
+      labels:months,
+      datasets:[
+        {label:"Доходи",data:months.map(m=>byMonth[m].income),backgroundColor:"#28c76f"},
+        {label:"Витрати",data:months.map(m=>byMonth[m].expense),backgroundColor:"#ff5c5c"}
+      ]
+    },
+    options:{responsive:true,plugins:{legend:{position:"bottom"}},scales:{y:{beginAtZero:true}}}
+  });
+}
+
+function exportCSV(){
+  if(transactions.length===0){alert("Немає даних для експорту.");return;}
+  const rows=[["Дата","Тип","Категорія","Сума","Коментар"]];
+  transactions.forEach(t=>rows.push([t.date,t.type==="income"?"Дохід":"Витрата",t.category,t.amount,t.note||""]));
+  const csv="\uFEFF"+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(";")).join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download="finansovyi_pomichnyk.csv";a.click();URL.revokeObjectURL(url);
+}
+
+function clearAll(){
+  if(confirm("Справді видалити всі фінансові записи, ціль і власні категорії?")){
+    transactions=[];goal={name:"",amount:0};expenseCategories=[...defaultExpenseCategories];
+    localStorage.removeItem(TX_KEY);localStorage.removeItem(GOAL_KEY);localStorage.removeItem(CAT_KEY);
+    document.getElementById("goalName").value="";document.getElementById("goalAmount").value="";
+    render();
+  }
+}
+
+if ("serviceWorker" in navigator) { window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js")); }
+render();
+</script>
+</body>
+</html>
