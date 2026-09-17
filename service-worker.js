@@ -1,4 +1,4 @@
-const CACHE_NAME = 'moi-finansy-v1';
+const CACHE_NAME = 'moi-finansy-v2';
 
 const FILES_TO_CACHE = [
   './',
